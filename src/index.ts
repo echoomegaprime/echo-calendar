@@ -26,8 +26,34 @@ function cors(): Response {
   return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Echo-API-Key' } });
 }
 
-function authOk(req: Request, env: Env): boolean {
-  return (req.headers.get('X-Echo-API-Key') || req.headers.get('Authorization')?.replace('Bearer ', '')) === env.ECHO_API_KEY;
+// Constant-time comparison: a plain `===` on a secret leaks its length and
+// prefix-match progress through response timing. Compare fixed-length
+// buffers so elapsed time is independent of where (or whether) the values
+// diverge.
+export function timingSafeEqual(a: string | undefined, b: string | undefined): boolean {
+  if (a === undefined || b === undefined) return false;
+  const enc = new TextEncoder();
+  const bufA = enc.encode(a);
+  const bufB = enc.encode(b);
+  const len = Math.max(bufA.length, bufB.length, 1);
+  const padA = new Uint8Array(len);
+  const padB = new Uint8Array(len);
+  padA.set(bufA);
+  padB.set(bufB);
+  let diff = bufA.length ^ bufB.length;
+  for (let i = 0; i < len; i++) diff |= padA[i] ^ padB[i];
+  return diff === 0;
+}
+
+export function authOk(req: Request, env: Env): boolean {
+  // Fail closed: an unset ECHO_API_KEY must never authorize a request. The
+  // previous implementation had no guard here, so `provided === undefined`
+  // would equal `env.ECHO_API_KEY === undefined` and silently authorize
+  // every unauthenticated request if the secret were ever misconfigured.
+  if (!env.ECHO_API_KEY) return false;
+  const provided = req.headers.get('X-Echo-API-Key') || req.headers.get('Authorization')?.replace('Bearer ', '');
+  if (!provided) return false;
+  return timingSafeEqual(provided, env.ECHO_API_KEY);
 }
 
 async function rateLimit(kv: KVNamespace, key: string, max = RL_MAX): Promise<boolean> {

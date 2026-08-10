@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "echo-calendar",
+  "capabilities": [],
+  "note": "arcanum_sdk.sdk_capabilities has one echo.calendar.* entry (echo.calendar.schedule_meeting), but no matching route exists in this repository's src/index.ts (routes enumerated by grep of every routing check) -- it belongs to a different service and is not claimed here.",
+  "entrypoints": ["scripts/certforge_journey.py"],
+  "data_classification": "restricted",
+  "network": "none"
+}
